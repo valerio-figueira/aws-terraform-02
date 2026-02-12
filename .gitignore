@@ -1,0 +1,27 @@
+# 1. Arquivos locais do Terraform
+# Contém módulos baixados e plugins do provider (podem ser muito grandes)
+.terraform/
+
+# 2. Arquivos de Estado (CRÍTICO)
+# Estes arquivos guardam toda a sua infra, incluindo senhas em texto puro.
+# Se você usar Backend Remoto (S3), eles não serão criados localmente.
+*.tfstate
+*.tfstate.backup
+*.tfstate.lock.info
+*.terraform.lock.hcl
+
+# 3. Variáveis Sensíveis
+# Nunca suba arquivos que contenham senhas reais ou chaves
+*.tfvars
+*.tfvars.json
+
+# 4. Logs e Crash Reports
+*.log
+crash.log
+
+# 5. Arquivos de Sistema (Linux/Fedora)
+# Evita lixo de pastas do sistema e editores
+.DS_Store
+.directory
+*~
+*.swp

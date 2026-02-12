@@ -1,0 +1,3 @@
+aws_account_id = "000000000000"
+codestar_arn   = "arn:aws:codestar-connections:region:account:connection/id"
+repo_owner     = "organization"

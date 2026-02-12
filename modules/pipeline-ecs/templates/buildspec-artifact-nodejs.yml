@@ -1,0 +1,30 @@
+version: 0.2
+phases:
+  pre_build:
+    commands:
+      - echo "Efetuando login no ECR..."
+      - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+      - REPOSITORY_URI=$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$PROJECT_NAME-$ENVIRONMENT
+      # Os primeiros 7 caracteres do ID do commit do repositório (GitHub):
+      # Fundamental para a Rastreabilidade: se algo der errado, você saberá exatamente qual commit gerou a imagem no ECR.
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - IMAGE_TAG=$${COMMIT_HASH:=latest}
+  build:
+    commands:
+      - echo "Build iniciado em `date`"
+      - docker build -t $REPOSITORY_URI:latest .
+      - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
+  post_build:
+    commands:
+      - echo "Build finalizado. Enviando imagem..."
+      - docker push $REPOSITORY_URI:latest
+      # Versão única e imutável:
+      - docker push $REPOSITORY_URI:$IMAGE_TAG
+      - echo "Gerando arquivo de definição para o Deploy..."
+      - printf '[{"name":"%s","imageUri":"%s"}]' "$PROJECT_NAME" "$REPOSITORY_URI:$IMAGE_TAG" > imagedefinitions.json
+
+# O CodeBuild pega o arquivo imagedefinitions.json, compacta-o e o envia para o seu Bucket S3 de Artefatos:
+# A partir daí, o CodePipeline detecta que um novo artefato de deploy está disponível e inicia a fase final.
+artifacts:
+  files:
+    - imagedefinitions.json

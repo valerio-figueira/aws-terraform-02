@@ -1,0 +1,40 @@
+version: 0.2
+phases:
+  install:
+    runtime-versions:
+      nodejs: 22
+    commands:
+      - npm install
+      - npm install -g esbuild
+  pre_build:
+    commands:
+      - echo "Rodando Lint..."
+      - npx eslint . # Interrompe o build se houver erro de código
+  build:
+    commands:
+      - echo "Compilando com esbuild..."
+      # Gera o arquivo diretamente na pasta dist
+      - esbuild src/handler.ts --bundle --minify --platform=node --target=node18 --outfile=dist/index.js
+      # Entra na dist, zipa e coloca o zip na RAIZ ($CODEBUILD_SRC_DIR)
+      - cd dist && zip -r $CODEBUILD_SRC_DIR/function.zip index.js
+  post_build:
+    commands:
+      # 1. Volta para a raiz para garantir que estamos no lugar certo
+      - cd $CODEBUILD_SRC_DIR
+      
+      # 2. O ECHO para visualizar o conteúdo (Debug)
+      - echo "Listando arquivos no diretório atual para conferência:"
+      - ls -lh
+      
+      # 3. Verifica se o zip realmente existe antes de tentar o deploy
+      - |
+        if [ -f "function.zip" ]; then
+          echo "✅ function.zip encontrado. Iniciando deploy..."
+          aws lambda update-function-code --function-name $LAMBDA_FUNCTION_NAME --zip-file fileb://function.zip
+        else
+          echo "❌ ERRO: function.zip não foi encontrado na raiz!"
+          exit 1
+        fi
+cache:
+  paths:
+    - 'node_modules/**/*'
