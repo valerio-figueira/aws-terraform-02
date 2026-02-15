@@ -8,7 +8,6 @@
 *.tfstate
 *.tfstate.backup
 *.tfstate.lock.info
-*.terraform.lock.hcl
 
 # 3. Variáveis Sensíveis
 # Nunca suba arquivos que contenham senhas reais ou chaves
@@ -25,3 +24,7 @@ crash.log
 .directory
 *~
 *.swp
+
+# 6. Artefatos gerados pelo Terraform
+# placeholder.zip é criado por archive_file durante terraform apply
+**/placeholder.zip

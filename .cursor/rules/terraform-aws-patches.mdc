@@ -1,0 +1,82 @@
+---
+description: Regras e patches críticos do projeto Terraform AWS
+globs: "**/*.tf"
+alwaysApply: false
+---
+
+# Patches Críticos - Terraform AWS
+
+Regras documentadas dos patches críticos aplicados neste projeto.
+
+## 1. Placeholder ZIP para Lambdas
+
+Lambdas precisam de um arquivo zip inicial antes da primeira execução da pipeline. O `placeholder.zip` é gerado automaticamente via `archive_file` (provider HashiCorp Archive).
+
+- **Local:** `environments/dev/003-lambdas/placeholder.tf`
+- **Provider:** `hashicorp/archive` em `versions.tf`
+
+```hcl
+# ✅ GOOD: Gerar placeholder dinamicamente
+data "archive_file" "placeholder" {
+  type        = "zip"
+  output_path = "${path.module}/placeholder.zip"
+  source {
+    content  = "{}"
+    filename = "placeholder.json"
+  }
+}
+
+resource "aws_lambda_function" "app" {
+  filename = data.archive_file.placeholder.output_path
+  # ...
+}
+```
+
+- **Evitar:** Referenciar `placeholder.zip` como arquivo estático sem gerá-lo.
+
+## 2. Bloco terraform e required_providers
+
+Todo ambiente deve ter `versions.tf` com versões fixas para builds reproduzíveis.
+
+- **Locais:** `environments/dev/*/versions.tf`
+
+```hcl
+terraform {
+  required_version = ">= 1.5.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+```
+
+- **Evitar:** Executar Terraform sem `required_version` ou `required_providers` definidos.
+
+## 3. Nome Único para Buckets S3
+
+Buckets S3 têm namespace global. Use `account_id` para garantir unicidade.
+
+- **Local:** `environments/dev/002-frontend/frontend.tf`
+
+```hcl
+# ✅ GOOD: Bucket único por conta
+bucket_name = "app-vue-dev-${data.aws_caller_identity.current.account_id}"
+```
+
+- **Evitar:** Nomes fixos como `app-vue-dev` que podem conflitar entre contas.
+
+## 4. .terraform.lock.hcl Versionado
+
+O lock file deve ser commitado para garantir builds reproduzíveis.
+
+- **Ação:** `.terraform.lock.hcl` **não** está em `.gitignore`
+- **Evitar:** Ignorar `.terraform.lock.hcl` no versionamento.
+
+## 5. Artefatos Gerados no .gitignore
+
+Arquivos gerados pelo Terraform não devem ser versionados:
+
+- `**/placeholder.zip` — criado por `archive_file` durante `terraform apply`

@@ -5,9 +5,9 @@ resource "aws_lambda_function" "app" {
   handler       = "index.handler"
   runtime       = "nodejs22.x"
 
-  # Placeholder: Um arquivo zip vazio só para o Terraform conseguir criar a função
+  # Placeholder: Zip gerado via archive_file (ver placeholder.tf)
   # Na primeira execução da esteira, esse código será substituído pelo real.
-  filename = "${path.module}/placeholder.zip"
+  filename = data.archive_file.placeholder.output_path
 
   memory_size = each.value.memory_size
   timeout     = 10
