@@ -1,0 +1,145 @@
+---
+description: Boas práticas de Infrastructure as Code (Terraform AWS) - contexto do projeto
+globs: "**/*.tf"
+alwaysApply: false
+---
+
+# Boas Práticas IaC - Terraform AWS
+
+Padrões e convenções para manter o projeto consistente, escalável e seguro.
+
+## 1. Estrutura e Organização
+
+### Camadas e Ordem de Dependência
+
+```
+environments/dev/
+├── 000-network/    # Base: VPC, subnets (nada depende)
+├── 001-backend-ecs # Depende: VPC
+├── 002-frontend    # Independente
+└── 003-lambdas     # Independente
+```
+
+- Usar prefixos numéricos (000, 001...) para ordem explícita de deploy.
+- Data sources para lookup (ex: VPC por tag) quando sem remote state.
+- Documentar ordem de `terraform apply` no README.
+
+### Arquivos por Responsabilidade
+
+- `versions.tf` — terraform block, required_providers
+- `variables.tf` — input variables
+- `outputs.tf` — outputs
+- `data-sources.tf` — data sources
+- `locals.tf` — locals (e módulo global se necessário)
+- `main.tf` / `*.tf` — recursos por domínio (ecs.tf, iam.tf, etc.)
+
+## 2. Variáveis e Validação
+
+### Sempre Validar Enums
+
+```hcl
+variable "environment" {
+  type        = string
+  description = "Ambiente (develop, homolog, production)"
+
+  validation {
+    condition     = contains(["develop", "homolog", "production"], var.environment)
+    error_message = "environment deve ser develop, homolog ou production."
+  }
+}
+```
+
+### Mapeamento Branch ↔ Environment
+
+- `production` → branch `main`
+- `develop` → branch `develop`
+- `homolog` → branch `homolog`
+
+Usar `local.branch_for_pipeline = var.env == "production" ? "main" : var.env` no módulo global.
+
+## 3. Módulos
+
+### Princípios
+
+- **Single responsibility:** um módulo = um domínio (pipeline, frontend, vpc).
+- **Interface clara:** variáveis explícitas, outputs necessários.
+- **Evitar pass-through:** não repassar variáveis apenas para devolver em output.
+- **Data-driven:** usar `for_each` em maps para escalar serviços/lambdas.
+
+### Exemplo de Módulo Reutilizável
+
+```hcl
+# modules/frontend/variables.tf — interface mínima
+variable "bucket_name" { type = string }
+variable "env" { type = string }
+variable "price_class" { type = string }
+```
+
+## 4. Nomenclatura e Recursos Globais
+
+### Buckets S3
+
+- Namespace global: usar `account_id` para unicidade.
+
+```hcl
+bucket_name = "app-vue-${var.env}-${data.aws_caller_identity.current.account_id}"
+```
+
+### Recursos com Suffix de Ambiente
+
+- `cluster-ecs-${local.env}`
+- `lambda-api-fast-process-${var.env}`
+
+## 5. Segurança
+
+### Criptografia
+
+- S3: `server_side_encryption_configuration` (AES256)
+- ECR: `encryption_configuration` (AES256)
+
+### IAM
+
+- Roles específicas por serviço (ECS task, Lambda, CodeBuild).
+- Evitar políticas amplas (`*`) quando possível.
+- Security groups: restringir `cidr_blocks` ao Load Balancer ou VPC em produção.
+
+### Credenciais
+
+- Nada sensível em `.tf` ou `.tfvars` versionados.
+- Usar `tfvars` (ou secrets manager) para valores reais; `.example` como template.
+
+## 6. FinOps
+
+- Lifecycle em S3 e ECR para reduzir custo de armazenamento.
+- Retenção curta de logs em dev.
+- Buckets com `force_destroy = true` apenas em ambientes não produtivos.
+
+## 7. Placeholder e Artefatos
+
+### Lambdas
+
+- Usar `archive_file` para gerar placeholder em vez de arquivo estático.
+- `**/placeholder.zip` no `.gitignore`.
+
+### Lock File
+
+- `.terraform.lock.hcl` deve ser versionado para builds reproduzíveis.
+
+## 8. CloudFront
+
+- Evitar `forwarded_values` (deprecated).
+- Preferir `cache_policy_id` e `origin_request_policy_id` (managed policies).
+- Usar OAC (Origin Access Control) com S3, não OAI legado.
+
+## 9. CI/CD e Pipelines
+
+- `pipeline_type = "V2"` para trigger nativo.
+- Branch mapeada corretamente (production → main).
+- Nomes de recursos alinhados entre ECS Task Definition e Pipeline (service name = project name).
+
+## 10. Próximos Passos (Evolution)
+
+- Configurar backend remoto (S3 + DynamoDB) para state.
+- Usar `terraform_remote_state` entre camadas em vez de data source por tag.
+- Criar workspaces ou pastas `staging`/`production`.
+- Adicionar tflint / terratest para qualidade e testes automatizados.

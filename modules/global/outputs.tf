@@ -15,5 +15,10 @@ output "codestar_arn" {
 
 output "repo_owner" {
   description = "Identificador do repositório"
-  value = var.repo_owner
+  value       = var.repo_owner
+}
+
+output "branch_for_pipeline" {
+  description = "Branch que dispara o pipeline (production -> main, demais -> mesmo nome)"
+  value       = local.branch_for_pipeline
 }

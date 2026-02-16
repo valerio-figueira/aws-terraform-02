@@ -7,7 +7,7 @@ module "pipeline_backend" {
   stack_type   = each.value.stack
 
   environment  = local.env
-  branch_name  = local.env
+  branch_name  = local.branch_for_pipeline
   codestar_arn = local.codestar_arn
 
   # Dados dinâmicos obtidos via Data Sources
