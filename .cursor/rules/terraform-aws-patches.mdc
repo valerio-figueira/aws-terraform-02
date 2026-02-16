@@ -80,3 +80,11 @@ O lock file deve ser commitado para garantir builds reproduzíveis.
 Arquivos gerados pelo Terraform não devem ser versionados:
 
 - `**/placeholder.zip` — criado por `archive_file` durante `terraform apply`
+
+## 6. AWS Cloud Map — health_check_custom_config
+
+Em `aws_service_discovery_service`, o atributo `failure_threshold` dentro de `health_check_custom_config` está **deprecated** (API AWS e provider Terraform).
+
+- **Usar:** bloco vazio `health_check_custom_config {}`
+- **Evitar:** `failure_threshold = 1` (gera warning; será removido no provider v6)
+- **Local:** `modules/cloud-map/main.tf`

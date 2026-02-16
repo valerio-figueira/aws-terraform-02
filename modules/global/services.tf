@@ -8,6 +8,7 @@ locals {
       env_vars = {
         "NODE_ENV" = var.env
         "PORT"     = "3000"
+        "ECS_SERVICE_DISCOVERY_DOMAIN" = "ecs.local"  # Para construir URLs
       }
       # TO-DO: Para segredos (AWS Secrets Manager)
       app_secrets = []

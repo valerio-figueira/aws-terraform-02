@@ -84,6 +84,11 @@ resource "aws_ecs_service" "app" {
   desired_count   = 1 # Apenas 1 instância para economizar em dev
   launch_type     = "FARGATE"
 
+  # --- CLOUD MAP: Registro automático no DNS ---
+  service_registries {
+    registry_arn = module.cloud_map.service_registry_arns[each.key]
+  }
+
   network_configuration {
     subnets         = data.aws_subnets.public.ids
     security_groups = [aws_security_group.ecs_service_sg.id]

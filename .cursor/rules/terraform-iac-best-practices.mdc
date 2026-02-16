@@ -137,7 +137,50 @@ bucket_name = "app-vue-${var.env}-${data.aws_caller_identity.current.account_id}
 - Branch mapeada corretamente (production → main).
 - Nomes de recursos alinhados entre ECS Task Definition e Pipeline (service name = project name).
 
-## 10. Próximos Passos (Evolution)
+## 10. AWS Cloud Map (Service Discovery)
+
+Comunicação HTTP entre APIs no ECS via DNS privado (sem ALB interno).
+
+### Onde está
+
+- **Módulo:** `modules/cloud-map/` (namespace + service discovery por ECS service)
+- **Uso:** `environments/dev/001-backend-ecs/service-discovery.tf` chama o módulo; `ecs.tf` usa `service_registries` no `aws_ecs_service`
+
+### Convenções
+
+- **Namespace:** `ecs.local` (DNS privado na VPC)
+- **Nomes dos serviços:** iguais às keys de `local.services` (ex: `backend-nest-app-1`)
+- **Resolução:** `http://<service-name>.ecs.local:3000` (porta conforme `services.tf`)
+
+### health_check_custom_config
+
+- Usar bloco **vazio** para Fargate (custom health check ativado; ECS gerencia registro/deregistro).
+
+```hcl
+# ✅ GOOD
+health_check_custom_config {}
+
+# ❌ EVITAR: failure_threshold está deprecated na API AWS e no provider
+health_check_custom_config {
+  failure_threshold = 1
+}
+```
+
+### Integração ECS
+
+- Cada `aws_ecs_service` deve ter `service_registries { registry_arn = module.cloud_map.service_registry_arns[each.key] }`.
+- Lista de serviços do módulo: `service_names = [for k, _ in local.services : k]`.
+
+### Uso na aplicação
+
+- Injetar `ECS_SERVICE_DISCOVERY_DOMAIN=ecs.local` (ou URL explícita) em `env_vars` do serviço que precisa chamar outro.
+- Resolver: `http://<outro-servico>.ecs.local:3000`.
+
+### Custo
+
+- ~US$ 0,10/recurso/mês + opcional Route 53; ordem de US$ 1–2/mês em dev.
+
+## 11. Próximos Passos (Evolution)
 
 - Configurar backend remoto (S3 + DynamoDB) para state.
 - Usar `terraform_remote_state` entre camadas em vez de data source por tag.
